@@ -1,0 +1,8 @@
+@font-face {
+    font-family: 'Tinkoff Sans';
+    src: url('./TinkoffSans_Regular.eot');
+    src: url('./TinkoffSans_Regular.eot') format('embedded-opentype'),
+         url('./TinkoffSans_Regular.woff') format('woff');
+    font-weight: normal;
+    font-style: normal;
+}
