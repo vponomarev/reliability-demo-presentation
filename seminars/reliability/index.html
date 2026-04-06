@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+	<title>Observability: SLA, SLO, SLI</title>
+
+	<link rel="stylesheet" href="/dist/reset.css">
+	<link rel="stylesheet" href="/dist/reveal.css">
+	<link rel="stylesheet" href="/dist/theme/ab-sre.css">
+	<link rel="stylesheet" href="/plugin/highlight/monokai.css">
+	<style>
+		.reveal .slides {
+			width: 1280px !important;
+			max-width: 1280px !important;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+
+			<section>
+				<h2>Обо мне</h2>
+				<br/>
+				<div style="display: flex; align-items: center; gap: 30px;">
+					<div style="flex: 0 0 400px;">
+						<div style="width: 250px; height: 250px; background: #e0e0e0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #666; font-size: 0.7em; text-align: center;">
+							Фото
+						</div>
+					</div>
+					<div style="flex: 1;">
+						<h3 style="text-align: left;">Виталий Пономарёв</h3>
+						<p style="font-size: 0.8em; text-align: left;">
+							<span><strong>SRE Lead</strong> в Т-Банке, продукт S3 as a Service</span>
+						</p>
+						<ul style="font-size: 0.7em; list-style: none; padding: 0; margin: 0;">
+							<li>✅ Опыт разработки на Go, PHP, Python</li>
+							<li>✅ Проектирование высоконагруженных систем</li>
+							<li>✅ Построение процессов поддержки с нуля</li>
+							<li>✅ Мобильные сети, VAS сервисы мобильных операторов</li>
+							<li>✅ Знаю, что такое S3</li>
+						</ul>
+					</div>
+				</div>
+			</section>
+
+			<section>
+				<h1>Наблюдаемость</h1>
+				<p style="font-size: 0.85em; text-align: left;">
+				Курс: <strong>промышленная разработка</strong><br/>
+				Блок 6: <strong>Observability (Наблюдаемость)</strong>
+				</p>
+				<p style="text-align: left;">
+<small>Понятие отслеживаемости.<br/>
+Основные гарантии обеспечения: SLA, SLO, SLI.<br/>
+Метрики для отслеживания стабильности инфраструктуры.<br/>
+Виды отслеживаемости: мониторинг, логирование, трассировка.<br/>
+Виды систем сбора метрик и логирования.<br/>
+Отличие стеков ELK (ElasticSearch, LogStash, Kibana) от стека LGTM (Loki, Grafana, Tempo, Mimir).<br/>
+Интеграция инфраструктуры отслеживания в Kubernetes-кластере: Prometheus Service Discovery</small></p>
+			</section>
+
+			<section>
+				<h2>Жизненный цикл приложения</h2>
+				<img src="lifecycle.png" alt="Жизненный цикл приложения" style="max-width: 70%; max-height: 60vh;">
+			</section>
+
+			<section>
+				<p style="font-size: 0.9em;">Вы уже умеете:</p>
+				<ul style="font-size: 0.7em; list-style: none; padding: 0; margin: 0;">
+					<li>✅ Писать код на различных языках программирования</li>
+					<li>✅ Работать с базами данных и сетями</li>
+					<li>✅ Проектировать архитектуру систем</li>
+					<li>✅ Обеспечивать безопасность</li>
+					<li>✅ Понимаете, что такое многопоточность</li>
+					<li>✅ Знакомы с сетями</li>
+				</ul>
+				<p style="font-size: 0.9em; margin-top: 30px;">
+					Но что происходит <strong>дальше</strong>?<br/>
+				</p>
+				<p style="text-align: left;"><small>Дальше начинается занимательный мир внедрения и эксплуатации.<br/>
+				Приложение работает, пользователи нажимают на кнопки, данные текут через сервисы.<br/>
+				Что-то работает быстро, что-то медленно.<br/><br/>
+				<b>И тут возникает главный вопрос:</b> как понять, что система работает правильно и работает ли она вообще?
+				
+				</small></p>
+			</section>
+
+
+			<section>
+				<h2>Надёжность. Зачем она нужна?</h2>
+				<p style="font-size: 0.8em;">Бизнес-приложения должны выполнять условия для соответствия ожиданиям:</p>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">
+					<div style="background: #e8f4fd; padding: 20px; border-radius: 10px;">
+						<h4 style="color: #2a76dd;">Функциональность</h4>
+						<p style="font-size: 0.6em;">Система делает то, что должна</p>
+					</div>
+					<div style="background: #fff3cd; padding: 20px; border-radius: 10px;">
+						<h4 style="color: #856404;">Надёжность</h4>
+						<p style="font-size: 0.6em;">Система работает стабильно</p>
+					</div>
+					<div style="background: #d4edda; padding: 20px; border-radius: 10px;">
+						<h4 style="color: #155724;">Производительность</h4>
+						<p style="font-size: 0.6em;">Система работает быстро</p>
+					</div>
+					<div style="background: #f8d7da; padding: 20px; border-radius: 10px;">
+						<h4 style="color: #721c24;">Безопасность</h4>
+						<p style="font-size: 0.6em;">Система защищена</p>
+					</div>
+				</div>
+			</section>
+
+			<section>
+				<h2>Механизмы обеспечения надёжности</h2>
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 25px;">
+					<div style="background: #e8f4fd; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #2a76dd; font-size: 0.55em;">🏗️ Архитектурные</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Репликация</li>
+							<li>Шардирование</li>
+							<li>Балансировка нагрузки</li>
+							<li>Автоматический failover</li>
+						</ul>
+					</div>
+					<div style="background: #fff3cd; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #856404; font-size: 0.55em;">🛡️ Паттерны устойчивости</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Cirtuit breaker</li>
+							<li>Failover</li>
+							<li>Таймаут</li>
+							<li>Переповторы (retry)</li>
+						</ul>
+					</div>
+					<div style="background: #d4edda; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #155724; font-size: 0.55em;">⚙️ Инфраструктурные</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Автомасштабирование</li>
+							<li>Healthckek'и</li>
+							<li>Канареечное развёртывание</li>
+						</ul>
+					</div>
+					<div style="background: #f8d7da; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #721c24; font-size: 0.55em;">📋 Процессные</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Ревью кода</li>
+							<li>CI/CD для деплоя</li>
+							<li>Change management</li>
+							<li>Postmortem</li>
+						</ul>
+					</div>
+					<div style="background: #e2d5f1; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #5a3d7a; font-size: 0.55em;">🧪 Тестирование</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Модульные тесты</li>
+							<li>Хаос-инжиниринг</li>
+							<li>Интеграционные тесты</li>
+						</ul>
+					</div>
+					<div style="background: #d1ecf1; padding: 12px; border-radius: 8px;">
+						<h4 style="color: #0c5460; font-size: 0.55em;">👁️ Наблюдаемость</h4>
+						<ul style="font-size: 0.42em; margin: 8px 0 0 0; column-count: 2; column-gap: 35px;">
+							<li>Метрики</li>
+							<li>Логи</li>
+							<li>Трассировка</li>
+							<li>Оповещение</li>
+						</ul>
+					</div>
+				</div>
+				<p style="font-size: 0.70em;"><small>По возможности выбирал термины на русском языке, но не везде есть устоявшиеся варианты.</small></p>
+			</section>
+
+			<section>
+				<h2>Что такое наблюдаемость?</h2>
+				<p style="font-size: 0.7em; margin-top: 40px;">
+					Представьте: пользователи пишут, что "всё тормозит". Метрики сервера в норме. Где проблема?
+				</p>
+				<p style="font-size: 0.7em; margin-top: 20px;">
+					<strong>Наблюдаемость</strong> — это возможность понять, что происходит внутри системы, не влезая в её код.
+				</p>
+				<div style="display: flex; justify-content: center; gap: 30px; margin-top: 50px;">
+					<div style="text-align: center; padding: 70px 50px; background: #e8f4fd; border-radius: 15px; min-width: 280px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+						<h4 style="color: #2a76dd; margin: 0; font-size: 0.9em;">📊 Мониторинг</h4>
+						<p style="font-size: 0.7em; margin: 15px 0 0 0; color: #555;">Метрики</p>
+					</div>
+					<div style="text-align: center; padding: 70px 50px; background: #fff3cd; border-radius: 15px; min-width: 280px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+						<h4 style="color: #856404; margin: 0; font-size: 0.9em;">📝 Логирование</h4>
+						<p style="font-size: 0.7em; margin: 15px 0 0 0; color: #555;">События</p>
+					</div>
+					<div style="text-align: center; padding: 70px 50px; background: #d4edda; border-radius: 15px; min-width: 280px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+						<h4 style="color: #155724; margin: 0; font-size: 0.9em;">🔍 Трассировка</h4>
+						<p style="font-size: 0.7em; margin: 15px 0 0 0; color: #555;">Запросы</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- Transition Section: Why do we need metrics? -->
+			<section>
+				<section>
+					<h2>Зачем нужны метрики?</h2>
+					<p style="font-size: 0.8em;">Наблюдаемость даёт нам <strong>инструменты</strong>, но что именно измерять?</p>
+					<div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 10px;">
+						<p style="font-size: 0.7em;"><strong>Проблема:</strong> можно собирать тысячи метрик, но понимать, хорошо ли работает система?</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Сценарий из практики</h2>
+					<div style="font-size: 0.7em; text-align: left;">
+						<p><strong>Утро понедельника:</strong></p>
+						<ul>
+							<li class="fragment">✅ CPU в норме (45%)</li>
+							<li class="fragment">✅ Память в порядке (60%)</li>
+							<li class="fragment">✅ Диск свободен (70%)</li>
+							<li class="fragment">❌ Но клиенты звонят: "Приложение тормозит!"</li>
+						</ul>
+						<p class="fragment" style="margin-top: 20px; color: #dc3545;"><strong>Вопрос:</strong> почему инфраструктурные метрики в норме, а пользователи недовольны?</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Инфраструктурные vs Бизнес-метрики</h2>
+					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">
+						<div style="background: #e8f4fd; padding: 20px; border-radius: 10px;">
+							<h4 style="color: #2a76dd;">Инфраструктурные</h4>
+							<ul style="font-size: 0.6em;">
+								<li>CPU usage</li>
+								<li>Memory usage</li>
+								<li>Disk I/O</li>
+								<li>Network throughput</li>
+							</ul>
+							<p style="font-size: 0.5em; margin-top: 15px;">❌ Не отражают опыт пользователя</p>
+						</div>
+						<div style="background: #d4edda; padding: 20px; border-radius: 10px;">
+							<h4 style="color: #155724;">Бизнес-метрики</h4>
+							<ul style="font-size: 0.6em;">
+								<li>Доступность API</li>
+								<li>Время ответа</li>
+								<li>Процент ошибок</li>
+								<li>Успешность транзакций</li>
+							</ul>
+							<p style="font-size: 0.5em; margin-top: 15px;">✅ Показывают, что чувствует пользователь</p>
+						</div>
+					</div>
+				</section>
+
+				<section>
+					<h2>Индикаторы надёжности</h2>
+					<div style="display: flex; gap: 20px; margin-top: 30px;">
+						<div style="flex: 1; background: #e8f4fd; padding: 20px; border-radius: 10px;">
+							<h4 style="color: #2a76dd; margin: 0 0 10px 0;">SLI</h4>
+							<p style="font-size: 0.6em; margin: 0;"><strong>Service Level Indicator</strong></p>
+							<p style="font-size: 0.55em; margin: 10px 0 0 0; color: #555;">Индикатор уровня сервиса</p>
+							<p style="font-size: 0.5em; margin: 10px 0 0 0;"><strong>Что измеряем?</strong></p>
+							<p style="font-size: 0.45em; margin: 5px 0 0 0; color: #666;">Метрика → Число (99.5%, 150мс)</p>
+						</div>
+						<div style="flex: 1; background: #fff3cd; padding: 20px; border-radius: 10px;">
+							<h4 style="color: #856404; margin: 0 0 10px 0;">SLO</h4>
+							<p style="font-size: 0.6em; margin: 0;"><strong>Service Level Objective</strong></p>
+							<p style="font-size: 0.55em; margin: 10px 0 0 0; color: #555;">Целевой уровень сервиса</p>
+							<p style="font-size: 0.5em; margin: 10px 0 0 0;"><strong>К чему стремимся?</strong></p>
+							<p style="font-size: 0.45em; margin: 5px 0 0 0; color: #666;">Цель → Порог (≥99.5%)</p>
+						</div>
+						<div style="flex: 1; background: #f8d7da; padding: 20px; border-radius: 10px;">
+							<h4 style="color: #721c24; margin: 0 0 10px 0;">SLA</h4>
+							<p style="font-size: 0.6em; margin: 0;"><strong>Service Level Agreement</strong></p>
+							<p style="font-size: 0.55em; margin: 10px 0 0 0; color: #555;">Соглашение об уровне сервиса</p>
+							<p style="font-size: 0.5em; margin: 10px 0 0 0;"><strong>Что обещаем?</strong></p>
+							<p style="font-size: 0.45em; margin: 5px 0 0 0; color: #666;">Договор → Последствия (штрафы)</p>
+						</div>
+					</div>
+				</section>
+
+				<section>
+					<h2>Зачем нужны SLA, SLO, SLI?</h2>
+					<div style="font-size: 0.75em;">
+						<ol>
+							<li class="fragment"><strong>Общий язык:</strong> разработчики, менеджмент и клиенты говорят на одном языке</li>
+							<li class="fragment"><strong>Приоритизация:</strong> понятно, какие проблемы критичны, а какие можно отложить</li>
+							<li class="fragment"><strong>Объективность:</strong> не "мне кажется медленно", а "p99 > 200мс"</li>
+							<li class="fragment"><strong>Алертинг:</strong> алерты на то, что действительно важно</li>
+							<li class="fragment"><strong>Баланс:</strong> между надёжностью и скоростью разработки</li>
+						</ol>
+					</div>
+				</section>
+
+				<section>
+					<h2>Иерархия метрик</h2>
+					<div style="display: flex; flex-direction: column; gap: 15px; margin-top: 30px;">
+						<div style="background: #e8f4fd; padding: 20px; border-radius: 10px;">
+							<div style="display: flex; gap: 20px;">
+								<div style="flex: 1; text-align: left;">
+									<h3 style="color: #2a76dd; margin: 0 0 10px 0;">SLI</h3>
+									<p style="font-size: 0.5em; margin: 15px 0 0 0; color: #666;"><strong>Пример:</strong> 99.5% запросов < 200мс</p>
+								</div>
+								<div style="flex: 1.5; text-align: left;">
+									<p style="font-size: 0.55em; margin: 0;"><strong>Метрика → Измерение</strong></p>
+									<ul style="font-size: 0.5em; margin: 0 0 10px 0; padding-left: 20px;">
+										<li>Доступность: % успешных запросов</li>
+										<li>Задержка: p50, p95, p99</li>
+										<li>Ошибки: % failed requests</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div style="background: #fff3cd; padding: 20px; border-radius: 10px;">
+							<div style="display: flex; gap: 20px;">
+								<div style="flex: 1; text-align: left;">
+									<h3 style="color: #856404; margin: 0 0 10px 0;">SLO</h3>
+									<p style="font-size: 0.5em; margin: 15px 0 0 0; color: #666;"><strong>Пример:</strong> 99.9% запросов < 300мс за месяц</p>
+								</div>
+								<div style="flex: 1.5; text-align: left;">
+									<p style="font-size: 0.55em; margin: 0;"><strong>Цель → Порог</strong></p>
+									<ul style="font-size: 0.5em; margin: 0 0 10px 0; padding-left: 20px;">
+										<li>Внутренняя цель команды</li>
+										<li>Обычно строже чем SLA</li>
+										<li>Баланс надёжности и скорости</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div style="background: #f8d7da; padding: 20px; border-radius: 10px;">
+							<div style="display: flex; gap: 20px;">
+								<div style="flex: 1; text-align: left;">
+									<h3 style="color: #721c24; margin: 0 0 10px 0;">SLA</h3>
+									<p style="font-size: 0.5em; margin: 15px 0 0 0; color: #666;"><strong>Пример:</strong> При < 99% — скидка 10%</p>
+								</div>
+								<div style="flex: 1.5; text-align: left;">
+									<p style="font-size: 0.55em; margin: 0;"><strong>Договор → Последствия</strong></p>
+									<ul style="font-size: 0.5em; margin: 0 0 10px 0; padding-left: 20px;">
+										<li>Юридическое обязательство</li>
+										<li>Штрафы при нарушении</li>
+										<li>Компенсации клиентам</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+			</section>
+
+			<!-- SLI Section -->
+			<section>
+				<section>
+					<h2>SLI (Service Level Indicator)</h2>
+					<p class="r-fit-text"><strong>Индикатор уровня сервиса</strong> — метрика, измеряющая конкретный аспект работы сервиса с точки зрения пользователя</p>
+				</section>
+
+				<section>
+					<h2>SLI: Примеры для S3 хранилища</h2>
+					<pre><code data-trim data-noescape># Для объектного хранилища S3:
+
+1. Availability (Доступность)
+   successful_requests / total_requests * 100%
+
+2. Latency (Задержка)
+   p50, p95, p99 времени ответа API
+
+3. Throughput (Пропускная способность)
+   запросов в секунду, ГБ/сек
+
+4. Durability (Сохранность данных)
+   процент успешных операций записи
+</code></pre>
+				</section>
+
+				<section>
+					<h2>SLI: Как выбирать</h2>
+					<ul style="font-size: 0.8em;">
+						<li><strong>Измеряйте опыт пользователя:</strong> не CPU/RAM, а доступность API</li>
+						<li><strong>Простые для понимания:</strong> команда должна понимать метрику</li>
+						<li><strong>Стабильные:</strong> без лишнего шума</li>
+						<li><strong>Действенные:</strong> можно повлиять на метрику</li>
+					</ul>
+				</section>
+			</section>
+
+			<!-- SLO Section -->
+			<section>
+				<section>
+					<h2>SLO (Service Level Objective)</h2>
+					<p class="r-fit-text"><strong>Целевой уровень сервиса</strong> — значение SLI, к которому стремимся</p>
+				</section>
+
+				<section>
+					<h2>SLO: Примеры для S3 хранилища</h2>
+					<pre><code data-trim data-noescape># Целевые значения для S3:
+
+Availability:
+  → 99.95% за 30 дней (успешных запросов)
+
+Latency (p99):
+  → GET-запросы: &lt; 100ms
+  → PUT-запросы: &lt; 200ms
+
+Throughput:
+  → 10 ГБ/сек на кластер
+
+Durability:
+  → 99.999999999% (11 девяток)</code></pre>
+				</section>
+
+				<section>
+					<h2>SLO: Баланс</h2>
+					
+					<div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+						<h4 style="color: #666; font-size: 0.55em; margin: 0 0 10px 0;">Допустимый даунтайм:</h4>
+						<table style="width: 100%; font-size: 0.4em; border-collapse: collapse; line-height: 1.2;">
+							<thead>
+								<tr style="border-bottom: 2px solid #ddd;">
+									<th style="padding: 5px; text-align: left;">Доступность</th>
+									<th style="padding: 5px; text-align: center;">В месяц</th>
+									<th style="padding: 5px; text-align: center;">В год</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td style="padding: 5px;"><strong>99%</strong></td>
+									<td style="padding: 5px; text-align: center;">7.3 часа</td>
+									<td style="padding: 5px; text-align: center;">3.65 дня</td>
+								</tr>
+								<tr>
+									<td style="padding: 5px;"><strong>99.9%</strong></td>
+									<td style="padding: 5px; text-align: center;">43.8 минуты</td>
+									<td style="padding: 5px; text-align: center;">8.76 часа</td>
+								</tr>
+								<tr>
+									<td style="padding: 5px;"><strong>99.95%</strong></td>
+									<td style="padding: 5px; text-align: center;">21.9 минуты</td>
+									<td style="padding: 5px; text-align: center;">4.38 часа</td>
+								</tr>
+								<tr>
+									<td style="padding: 5px;"><strong>99.99%</strong></td>
+									<td style="padding: 5px; text-align: center;">4.4 минуты</td>
+									<td style="padding: 5px; text-align: center;">52.6 минуты</td>
+								</tr>
+								<tr>
+									<td style="padding: 5px;"><strong>99.999%</strong></td>
+									<td style="padding: 5px; text-align: center;">26 секунд</td>
+									<td style="padding: 5px; text-align: center;">5.26 минуты</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<div style="display: flex; justify-content: space-around; align-items: center; margin-top: 30px; gap: 20px;">
+						<div style="text-align: center; width: 30%; padding: 20px; border-radius: 10px; background: #ffebee;">
+							<h4 style="color: #dc3545;">Слишком высокий</h4>
+							<p style="font-size: 0.6em;">99.999%</p>
+							<p style="font-size: 0.5em;">Очень дорого<br>Инновации тормозятся</p>
+						</div>
+						<div style="text-align: center; width: 30%; padding: 20px; border-radius: 10px; background: #e8f5e9;">
+							<h4 style="color: #28a745;">Правильный</h4>
+							<p style="font-size: 0.6em;">99.9-99.95%</p>
+							<p style="font-size: 0.5em;">Баланс надёжности<br>и скорости разработки</p>
+						</div>
+						<div style="text-align: center; width: 30%; padding: 20px; border-radius: 10px; background: #ffebee;">
+							<h4 style="color: #dc3545;">Слишком низкий</h4>
+							<p style="font-size: 0.6em;">99%</p>
+							<p style="font-size: 0.5em;">Клиенты недовольны<br>Теряем бизнес</p>
+						</div>
+					</div>
+
+				</section>
+			</section>
+
+			<!-- SLA Section -->
+			<section>
+				<section>
+					<h2>SLA (Service Level Agreement)</h2>
+					<p class="r-fit-text"><strong>Соглашение об уровне сервиса</strong> — формальный договор с клиентами</p>
+				</section>
+
+				<section>
+					<h2>SLA: Пример для S3 хранилища</h2>
+					<pre><code data-trim data-noescape>SLA для объектного хранилища:
+─────────────────────────────
+• Доступность: 99.9% в месяц
+• Сохранность: 99.999999999%
+
+Последствия нарушения:
+• &lt; 99.9% но ≥ 99.0%: кредит 10%
+• &lt; 99.0%: кредит 25%
+• &lt; 95.0%: кредит 50%
+
+Исключения:
+• Плановые работы (уведомление за 72ч)
+• Форс-мажор</code></pre>
+				</section>
+
+				<section>
+					<h2>SLA vs SLO vs SLI</h2>
+					<table style="font-size: 0.65em;">
+						<tr><th></th><th>SLI</th><th>SLO</th><th>SLA</th></tr>
+						<tr><td><strong>Что это</strong></td><td>Метрика</td><td>Цель</td><td>Обязательство</td></tr>
+						<tr><td><strong>Для кого</strong></td><td>Команда</td><td>Команда</td><td>Клиенты</td></tr>
+						<tr><td><strong>Пример</strong></td><td>99.5%</td><td>99.5%</td><td>99.0% + штрафы</td></tr>
+						<tr><td><strong>Последствия</strong></td><td>Алерт</td><td>Работа над ошибками</td><td>Компенсации</td></tr>
+					</table>
+				</section>
+			</section>
+
+			<!-- Interactive Section -->
+			<section>
+				<section>
+					<h2>Давайте спроектируем вместе!</h2>
+					<p style="font-size: 0.8em;">Представьте: вы разрабатываете <strong>сервис уведомлений</strong></p>
+					<div style="background: #f0f0f0; padding: 20px; border-radius: 10px; margin-top: 20px;">
+						<p style="font-size: 0.7em;"><strong>Контекст:</strong> сервис отправляет push/email/SMS уведомления пользователям банка</p>
+					</div>
+				</section>
+
+				<section>
+					<h2>Вопрос 1: Какие SLI выбрать?</h2>
+					<p style="font-size: 0.8em;">Что будем измерять для сервиса уведомлений?</p>
+					<div style="font-size: 0.7em; margin-top: 20px; text-align: left;">
+						<p class="fragment">💡 <strong>Варианты:</strong></p>
+						<ul class="fragment">
+							<li>Процент доставленных уведомлений?</li>
+							<li>Время доставки (от события до получения)?</li>
+							<li>Процент успешных вызовов API?</li>
+							<li>Количество отправленных уведомлений в секунду?</li>
+						</ul>
+					</div>
+				</section>
+
+				<section>
+					<h2>Вопрос 2: Какие SLO установить?</h2>
+					<p style="font-size: 0.8em;">Какие целевые значения разумны?</p>
+					<div style="font-size: 0.7em; margin-top: 20px; text-align: left;">
+						<p class="fragment">💡 <strong>Пример:</strong></p>
+						<ul class="fragment">
+							<li>Delivery Rate: 99.5% за 30 дней</li>
+							<li>Time to Deliver (p95): &lt; 30 секунд</li>
+							<li>API Success Rate: 99.9%</li>
+						</ul>
+					</div>
+				</section>
+
+				<section>
+					<h2>Вопрос 3: Что снимать с приложения?</h2>
+					<p style="font-size: 0.8em;">Какие метрики и логи нужны?</p>
+					<div style="font-size: 0.7em; margin-top: 20px; text-align: left;">
+						<p class="fragment">💡 <strong>Метрики:</strong></p>
+						<ul class="fragment">
+							<li>notifications_sent_total{type="push|email|sms", status="success|failed"}</li>
+							<li>notification_delivery_duration_seconds (histogram)</li>
+							<li>api_requests_total{endpoint, status_code}</li>
+						</ul>
+						<p class="fragment">💡 <strong>Логи:</strong></p>
+						<ul class="fragment">
+							<li>Факт отправки уведомления (кому, тип, результат)</li>
+							<li>Ошибки внешних провайдеров</li>
+							<li>Тайминги на каждом этапе</li>
+						</ul>
+					</div>
+				</section>
+			</section>
+
+			<!-- Observability Types -->
+			<section>
+				<section><h2>Виды отслеживаемости</h2></section>
+
+				<section>
+					<h2>Мониторинг (Метрики)</h2>
+					<pre><code data-trim data-noescape># Что это:
+Числовые данные о состоянии системы во времени
+
+# Примеры:
+- CPU usage: 45%
+- Request rate: 1000 req/s
+- Error rate: 0.5%
+- p99 latency: 250ms
+
+# Характеристики:
+- Агрегированные данные
+- Временные ряды
+- Низкий объём хранения</code></pre>
+				</section>
+
+				<section>
+					<h2>Логирование</h2>
+					<pre><code data-trim data-noescape># Что это:
+Записи о событиях в системе
+
+# Пример:
+{
+  "timestamp": "2025-04-04T10:15:30Z",
+  "level": "ERROR",
+  "service": "notification-svc",
+  "message": "Failed to send push notification",
+  "user_id": "12345",
+  "error": "connection timeout",
+  "trace_id": "abc-123-xyz"
+}
+
+# Характеристики:
+- Структурированные данные (JSON)
+- Высокий объём
+- Детальная информация</code></pre>
+				</section>
+
+				<section>
+					<h2>Трассировка</h2>
+					<pre><code data-noescape># Что это:
+Отслеживание пути запроса через все сервисы
+
+# Пример trace:
+[API Gateway] → [Auth Service] → [Notification Service] → [Push Provider]
+     ↓              ↓                    ↓                    ↓
+   15ms           25ms                 45ms                120ms
+
+# Характеристики:
+- Распределённые системы
+- End-to-end видимость
+- Выявление узких мест</code></pre>
+				</section>
+
+				<section>
+					<h2>Метрики vs Логи</h2>
+					<table style="font-size: 0.65em;">
+						<tr><th>Метрики</th><th>Логи</th></tr>
+						<tr><td>Числа во времени</td><td>Текстовые записи</td></tr>
+						<tr><td>Агрегированные</td><td>Детальные события</td></tr>
+						<tr><td>Мало места</td><td>Много места</td></tr>
+						<tr><td>"Что происходит?"</td><td>"Почему произошло?"</td></tr>
+						<tr><td>Алертинг</td><td>Расследование</td></tr>
+					</table>
+				</section>
+			</section>
+
+			<!-- Metrics Collection Systems -->
+			<section>
+				<section><h2>Системы сбора метрик</h2></section>
+
+				<section>
+					<h2>Prometheus</h2>
+					<div style="display: flex; gap: 30px; align-items: center;">
+						<div style="flex: 1;">
+							<ul style="font-size: 0.7em;">
+								<li><strong>Pull-модель:</strong> сам забирает метрики</li>
+								<li><strong>Временные ряды:</strong> хранение + агрегация</li>
+								<li><strong>PromQL:</strong> язык запросов</li>
+								<li><strong>Service Discovery:</strong> авто-обнаружение сервисов</li>
+								<li><strong>Alertmanager:</strong> алертинг</li>
+							</ul>
+						</div>
+						<div style="flex: 0 0 280px;">
+							<pre><code data-trim data-noescape># prometheus.yml
+scrape_configs:
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true</code></pre>
+						</div>
+					</div>
+				</section>
+
+				<section>
+					<h2>Prometheus в Kubernetes</h2>
+					<pre><code data-trim data-noescape># Service Discovery через Kubernetes:
+
+1. Prometheus сканирует K8s API
+2. Находит Pod'ы с аннотациями:
+   metadata:
+     annotations:
+       prometheus.io/scrape: "true"
+       prometheus.io/port: "8080"
+       prometheus.io/path: "/metrics"
+
+3. Автоматически добавляет в targets
+4. Собирает метрики по /metrics endpoint</code></pre>
+				</section>
+
+				<section>
+					<h2>Экспортеры метрик</h2>
+					<table style="font-size: 0.65em;">
+						<tr><th>Экспортер</th><th>Что собирает</th></tr>
+						<tr><td>node_exporter</td><td>CPU, RAM, Disk, Network хоста</td></tr>
+						<tr><td>kube-state-metrics</td><td>Состояние объектов K8s</td></tr>
+						<tr><td>cadvisor</td><td>Метрики контейнеров</td></tr>
+						<tr><td>postgres_exporter</td><td>Метрики PostgreSQL</td></tr>
+						<tr><td>redis_exporter</td><td>Метрики Redis</td></tr>
+						<tr><td>blackbox_exporter</td><td>HTTP/TCP проверки</td></tr>
+					</table>
+				</section>
+
+				<section>
+					<h2>Пример метрик Prometheus</h2>
+					<pre><code data-trim data-noescape># Метрики приложения:
+http_requests_total{method="POST", status="200"} 15432
+http_request_duration_seconds_bucket{le="0.1"} 8234
+process_resident_memory_bytes 234567890
+go_goroutines 45
+
+# Метрики ноды (node_exporter):
+node_cpu_seconds_total{cpu="0", mode="user"} 123456
+node_memory_MemAvailable_bytes 8765432100
+node_disk_read_bytes_total{device="sda"} 987654321</code></pre>
+				</section>
+			</section>
+
+			<!-- Log Collection Systems -->
+			<section>
+				<section><h2>Системы сбора логов</h2></section>
+
+				<section>
+					<h2>ELK Stack</h2>
+					<div style="font-size: 0.7em;">
+						<pre><code data-trim data-noescape># Архитектура:
+Application → Filebeat → Logstash → Elasticsearch → Kibana
+     ↓           ↓           ↓              ↓            ↓
+   Пишет     Собирает   Обрабатывает   Хранит      Визуализирует
+   логи       логи       фильтрует      и индексирует  дашборды</code></pre>
+						<ul style="margin-top: 20px;">
+							<li><strong>Filebeat:</strong> лёгкий агент для сбора логов</li>
+							<li><strong>Logstash:</strong> обработка и трансформация</li>
+							<li><strong>Elasticsearch:</strong> хранение и поиск</li>
+							<li><strong>Kibana:</strong> визуализация и анализ</li>
+						</ul>
+					</div>
+				</section>
+
+				<section>
+					<h2>Loki (от Grafana Labs)</h2>
+					<div style="font-size: 0.7em;">
+						<pre><code data-trim data-noescape># Архитектура:
+Application → Promtail → Loki → Grafana
+     ↓           ↓          ↓         ↓
+   Пишет     Собирает   Хранит   Визуализирует
+   логи       логи       логи     + запросы</code></pre>
+						<ul style="margin-top: 20px;">
+							<li><strong>Promtail:</strong> агент для сбора (аналог Filebeat)</li>
+							<li><strong>Loki:</strong> лёгкое хранение, индексация по лейблам</li>
+							<li><strong>Grafana:</strong> единый UI для метрик и логов</li>
+							<li><strong>Плюсы:</strong> дешевле ELK, лучше интеграция с Prometheus</li>
+						</ul>
+					</div>
+				</section>
+
+				<section>
+					<h2>Агенты сбора логов</h2>
+					<table style="font-size: 0.65em;">
+						<tr><th>Агент</th><th>Описание</th></tr>
+						<tr><td>Filebeat</td><td>Часть Elastic Stack, надёжный, много интеграций</td></tr>
+						<tr><td>Vector</td><td>Высокая производительность (Rust), гибкая маршрутизация</td></tr>
+						<tr><td>Promtail</td><td>Специально для Loki, простая конфигурация</td></tr>
+						<tr><td>Fluentd/Fluent Bit</td><td>CNCF проект, богатая экосистема плагинов</td></tr>
+					</table>
+				</section>
+
+				<section>
+					<h2>Пример конфигурации Filebeat</h2>
+					<pre><code data-trim data-noescape># filebeat.yml
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/app/*.log
+  json.keys_under_root: true
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  indices:
+    - index: "app-logs-%{+yyyy.MM.dd}"</code></pre>
+				</section>
+			</section>
+
+			<!-- Tracing Systems -->
+			<section>
+				<section><h2>Системы трассировки</h2></section>
+
+				<section>
+					<h2>OpenTelemetry</h2>
+					<ul style="font-size: 0.7em;">
+						<li><strong>Стандарт де-факто:</strong> CNCF проект</li>
+						<li><strong>Unified API:</strong> метрики + логи + трассы</li>
+						<li><strong>Vendor-neutral:</strong> работает с любым бэкендом</li>
+					</ul>
+					<pre><code data-trim data-noescape># Архитектура:
+Application (OTel SDK) → OTel Collector → Jaeger/Tempo</code></pre>
+				</section>
+
+				<section>
+					<h2>Jaeger / Tempo</h2>
+					<table style="font-size: 0.65em;">
+						<tr><th>Jaeger</th><th>Tempo</th></tr>
+						<tr><td>CNCF проект (Uber)</td><td>Grafana Labs</td></tr>
+						<tr><td>Полнофункциональный</td><td>Лёгкий, для Grafana</td></tr>
+						<tr><td>Сложнее в настройке</td><td>Простая конфигурация</td></tr>
+					</table>
+				</section>
+			</section>
+
+			<!-- Summary -->
+			<section>
+				<h2>Итоги</h2>
+				<div style="display: grid; gap: 15px; margin-top: 20px;">
+					<div style="background: #e8f4fd; padding: 15px; border-radius: 8px;">
+						<strong>SLI</strong> — Метрика качества (что измеряем?)
+					</div>
+					<div style="background: #fff3cd; padding: 15px; border-radius: 8px;">
+						<strong>SLO</strong> — Цель (к чему стремимся?)
+					</div>
+					<div style="background: #f8d7da; padding: 15px; border-radius: 8px;">
+						<strong>SLA</strong> — Обязательство (что обещаем?)
+					</div>
+					<div style="background: #d4edda; padding: 15px; border-radius: 8px;">
+						<strong>Observability</strong> — Мониторинг + Логи + Трассировка
+					</div>
+				</div>
+			</section>
+
+			<!-- Key Takeaways -->
+			<section>
+				<h2>Зачем это разработчику?</h2>
+				<ol style="font-size: 0.8em;">
+					<li class="fragment"><strong>Понимание бизнеса:</strong> связь кода с надежностью сервиса</li>
+					<li class="fragment"><strong>Архитектурные решения:</strong> закладываем наблюдаемость с начала</li>
+					<li class="fragment"><strong>Меньше он-коллов:</strong> хорошие SLO = меньше ночных звонков</li>
+					<li class="fragment"><strong>Быстрое расследование:</strong> логи и трассы экономят время</li>
+					<li class="fragment"><strong>Карьерный рост:</strong> SRE-мышление ценится на рынке</li>
+				</ol>
+			</section>
+
+			<!-- Questions -->
+			<section>
+				<h1>Вопросы?</h1>
+				<p style="font-size: 0.8em; color: #666;">Спасибо за внимание!</p>
+				<img src="/assets/cu_logo.svg" width="200" style="margin-top: 40px;" />
+			</section>
+
+		</div>
+	</div>
+
+	<script src="/dist/reveal.js"></script>
+	<script src="/plugin/notes/notes.js"></script>
+	<script src="/plugin/markdown/markdown.js"></script>
+	<script src="/plugin/highlight/highlight.js"></script>
+	<script>
+		Reveal.initialize({
+			hash: true,
+			slideNumber: true,
+			transition: 'slide',
+			plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+		});
+	</script>
+</body>
+</html>
